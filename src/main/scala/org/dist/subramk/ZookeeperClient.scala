@@ -19,6 +19,10 @@ trait ZookeeperClient {
   def getAllBrokerIds(): Set[Int]
 
   def setPartitionReplicasForTopic(topicName: String, partitionReplicas: Set[PartitionReplicas])
+
+  def getPartitionAssignmentsFor(topicName: String): List[PartitionReplicas]
+
+  def subscribeTopicChangeListener(listener: IZkChildListener): Option[List[String]]
 }
 
 class ZookeeperClientImpl(config: Config) extends ZookeeperClient {
@@ -97,6 +101,16 @@ class ZookeeperClientImpl(config: Config) extends ZookeeperClient {
     val topicsPath = getTopicPath(topicName)
     val topicsData = JsonSerDes.serialize(partitionReplicas)
     createPersistentPath(zkClient, topicsPath, topicsData)
+  }
+
+  override def getPartitionAssignmentsFor(topicName: String): List[PartitionReplicas] = {
+    val partitionAssignments: String = zkClient.readData(getTopicPath(topicName))
+    JsonSerDes.deserialize[List[PartitionReplicas]](partitionAssignments.getBytes, new TypeReference[List[PartitionReplicas]]() {})
+  }
+
+  def subscribeTopicChangeListener(listener: IZkChildListener): Option[List[String]] = {
+    val result = zkClient.subscribeChildChanges(BrokerTopicsPath, listener)
+    Option(result).map(_.asScala.toList)
   }
 }
 
