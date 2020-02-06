@@ -1,14 +1,18 @@
 package org.dist.subramk
 
 import com.google.common.annotations.VisibleForTesting
-import org.I0Itec.zkclient.ZkClient
+import org.I0Itec.zkclient.{IZkChildListener, ZkClient}
 import org.I0Itec.zkclient.exception.{ZkMarshallingError, ZkNoNodeException}
 import org.I0Itec.zkclient.serialize.ZkSerializer
 import org.dist.kvstore.JsonSerDes
 import org.dist.queue.server.Config
 import org.dist.queue.utils.ZkUtils.Broker
 
+import scala.jdk.CollectionConverters._
+
 trait ZookeeperClient {
+  def subscribeBrokerChangeListener(listener: IZkChildListener): Option[List[String]]
+
   def registerSelf()
 }
 
@@ -46,6 +50,11 @@ class ZookeeperClientImpl(config: Config) extends ZookeeperClient {
 
   private def getBrokerPath(id: Int) = {
     BrokerIdsPath + "/" + id
+  }
+
+  def subscribeBrokerChangeListener(listener: IZkChildListener): Option[List[String]] = {
+    val result = zkClient.subscribeChildChanges(BrokerIdsPath, listener)
+    Option(result).map(_.asScala.toList)
   }
 }
 
